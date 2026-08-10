@@ -1,6 +1,6 @@
 import socket
 import struct # pack numbers into bytes. DNS header need 2-bytes in gif enain format
-
+from blocklist import BLOCKED
 
 def parse_domain(data , offset=12):
 	"""
@@ -52,17 +52,29 @@ while True:
 	print(f"Query for : {domain}")
 
 	#Forward to ISP DNS Server
-
-	upstream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	upstream.settimeout(5)
-
-	try:
-		upstream.sendto(data, ("192.168.10.1", 53))
-		response,_ = upstream.recvfrom(512)
+	
+	if domain in BLOCKED:
+		tid = data[:2]
+		flags = b'\x81\x83' #RCODE=3 (NXDOMAIN)
+		counts = struct.pack('>HHHH', 1,0,0,0)
+		header = tid + flags + counts
+		_,offset = parse_domain(data)
+		offset += 4
+		question = data[12:offset]
+		response = header + question
 		sock.sendto(response, addr)
-		print("FOrwarded to ISP")
-	except socket.timeout:
-		print("Upstream timeout, no response")
+		print(f"BLOCKED: {domain}")
+	else:
+		upstream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		upstream.settimeout(5)
+
+		try:
+			upstream.sendto(data, ("192.168.10.1", 53))
+			response,_ = upstream.recvfrom(512)
+			sock.sendto(response, addr)
+			print("FOrwarded to ISP")
+		except socket.timeout:
+			print("Upstream timeout, no response")
 		
-		response = build_response(data)
-		sock.sendto(response,addr)
+			response = build_response(data)
+			sock.sendto(response,addr)
