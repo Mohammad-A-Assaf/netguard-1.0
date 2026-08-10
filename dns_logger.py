@@ -41,6 +41,7 @@ def build_response(data):
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # socket.socket() creates a new network socket, AF_INET Address family:IPV4, SOCK_DGRAM Sockettype: datagram(UDP)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 sock.bind(("0.0.0.0",2053))
 
 print("Listening on UDP 2053...")
