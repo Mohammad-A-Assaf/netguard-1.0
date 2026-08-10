@@ -13,6 +13,7 @@ def parse_domain(data , offset=12):
 	while True: # keep going until we hit 0 in length
 		length = data[offset] # read 1 byte: how long is next label?
 		if length == 0: # If 0, we're done.
+			offset += 1
 			break
 		offset += 1 # Move past the length Byte.
 		label = data[offset:offset + length].decode('ascii') # read the label and covert it to text
@@ -45,14 +46,22 @@ sock.bind(("0.0.0.0",2053))
 print("Listening on UDP 2053...")
 
 while True:
-	data, addr = sock.recvfrom(512) #wait for UDP packet
-	
+	data, addr = sock.recvfrom(512) #wait for UDP packet	
 	domain, _ = parse_domain(data) #extract the domain name
-
 	print(f"Query for : {domain}")
 
-	#show it	
+	#Forward to ISP DNS Server
 
-	response = build_response(data)
-	sock.sendto(response, addr)
-	print("Sent response back")
+	upstream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	upstream.settimeout(5)
+
+	try:
+		upstream.sendto(data, ("192.168.10.1", 53))
+		response,_ = upstream.recvfrom(512)
+		sock.sendto(response, addr)
+		print("FOrwarded to ISP")
+	except socket.timeout:
+		print("Upstream timeout, no response")
+		
+		response = build_response(data)
+		sock.sendto(response,addr)
